@@ -17,8 +17,8 @@ typedef struct {
 
 // Funkce pro simulaci skenování (náhodné hodnoty)
 static void uv_sensor_scan(UVSensorApp* app) {
-    // Zapne LED (Flipper používá power LED, ne GPIO)
-    furi_hal_power_led_test(true);
+    // Zapne podsvícení na 100% během skenování
+    // furi_hal_backlight_set(255);
 
     // Generování náhodných UV hodnot
     app->uva = (float)(rand() % 500) / 100.0; // 0.00 - 5.00
@@ -26,12 +26,12 @@ static void uv_sensor_scan(UVSensorApp* app) {
     app->uvc = (float)(rand() % 500) / 100.0; // 0.00 - 5.00
 
     // Pípnutí jako indikace skenu
-    furi_hal_speaker_start(1000, 100);
-    furi_delay_ms(100);
-    furi_hal_speaker_stop();
+    // furi_hal_speaker_start(1000, 100);
+    // furi_delay_ms(100);
+    // furi_hal_speaker_stop();
 
-    // Vypne LED
-    furi_hal_power_led_test(false);
+    // Vypne podsvícení (může být 0-255, kde 0 je úplně vypnuté)
+    // furi_hal_backlight_set(128);
 }
 
 // Funkce pro vykreslení obrazovky
@@ -39,20 +39,24 @@ static void uv_sensor_render(Canvas* canvas, void* ctx) {
     UVSensorApp* app = ctx;
 
     canvas_clear(canvas);
+    canvas_draw_rframe(canvas, 0, 0, 128, 64, 3);
     canvas_set_font(canvas, FontPrimary);
 
-    canvas_draw_str(canvas, 10, 10, "UV Sensor");
+    canvas_draw_str(canvas, 5, 12, "UV Sensor");
 
     char buffer[32];
+    canvas_set_font(canvas, FontSecondary);
 
     snprintf(buffer, sizeof(buffer), "UVA: %.2f", (double)app->uva);
-    canvas_draw_str(canvas, 10, 25, buffer);
+    canvas_draw_str(canvas, 5, 25, buffer);
 
     snprintf(buffer, sizeof(buffer), "UVB: %.2f", (double)app->uvb);
-    canvas_draw_str(canvas, 10, 40, buffer);
+    canvas_draw_str(canvas, 5, 35, buffer);
 
     snprintf(buffer, sizeof(buffer), "UVC: %.2f", (double)app->uvc);
-    canvas_draw_str(canvas, 10, 55, buffer);
+    canvas_draw_str(canvas, 5, 45, buffer);
+
+    canvas_draw_str(canvas, 5, 55, "C0->SCL, C1->SDA");
 }
 
 // Funkce pro ovládání tlačítek
