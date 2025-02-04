@@ -11,6 +11,7 @@
 #define CREG1   0x06 // Configuration Register 1 (integration and gain)
 #define CREG2   0x07 // Configuration Register 2 (divider, time measurement etc.)
 #define CREG3   0x08 // Configuration Register 3 (measurement mode, standby, internal clock)
+#define BREAK   0x09 // Configuration Register 3 (measurement mode, standby, internal clock)
 
 // Output register bank (active during measurement - automatically active):
 #define OUT_REG_STATUS 0x00 // Status (contains NOTREADY bit)

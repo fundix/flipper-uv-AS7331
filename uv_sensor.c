@@ -8,34 +8,35 @@
  */
 
 #include <furi.h>
-
 #include <gui/gui.h>
 #include <input/input.h>
 #include <notification/notification_messages.h>
 #include <math.h>
 #include <string.h>
 #include "AS7331.h"
-
 #include "views/main_view.h"
 
-// --- Aplikační logika a zobrazení ---
-
-// Globální buffery pro textové řetězce s výsledky
+// --- Globální buffery pro textové řetězce s výsledky ---
 static char uva_str[8] = {0};
 static char uvb_str[8] = {0};
 static char uvc_str[8] = {0};
 static char temp_str[8] = {0};
 
-// Stav senzoru (pro zobrazení)
+// --- Stav senzoru (pro zobrazení) ---
 typedef enum {
     SensorStatusInitializing,
     SensorStatusNoSensor,
     SensorStatusDataReady,
+    SensorStatusPaused, // Nově: měření zastaveno/pozastaveno
 } SensorStatus;
 
-static SensorStatus sensor_status = SensorStatusInitializing;
+// Nastavíme počáteční stav na "Paused"
+static SensorStatus sensor_status = SensorStatusPaused;
 
-// Typ události – timer nebo vstup
+// Globální proměnná, zda je měření spuštěno
+static bool measurement_running = false;
+
+// --- Typ události – timer nebo vstup ---
 typedef enum {
     SensorEventTypeTick,
     SensorEventTypeInput,
@@ -87,8 +88,19 @@ static void sensor_draw_callback(Canvas* canvas, void* ctx) {
         canvas_draw_str(canvas, 4, 50, "Temp:");
         canvas_draw_str(canvas, 40, 50, temp_str);
         break;
+    case SensorStatusPaused:
+        canvas_draw_str(canvas, 4, 20, "UVA:");
+        canvas_draw_str(canvas, 40, 20, uva_str);
+        canvas_draw_str(canvas, 4, 30, "UVB:");
+        canvas_draw_str(canvas, 40, 30, uvb_str);
+        canvas_draw_str(canvas, 4, 40, "UVC:");
+        canvas_draw_str(canvas, 40, 40, uvc_str);
+        canvas_draw_str(canvas, 4, 50, "Temp:");
+        canvas_draw_str(canvas, 40, 50, temp_str);
+        canvas_draw_str(canvas, 95, 60, "paused");
+        break;
     }
-    canvas_draw_str(canvas, 4, 60, "Press BACK to exit.");
+    canvas_draw_str(canvas, 4, 60, "BACK: exit, OK: run");
 }
 
 // --- Hlavní funkce aplikace ---
@@ -108,7 +120,7 @@ int32_t uv_sensor_app(void* p) {
 
     // Vytvoříme periodický timer (např. 1 Hz) pro čtení dat ze senzoru
     FuriTimer* timer = furi_timer_alloc(sensor_timer_callback, FuriTimerTypePeriodic, event_queue);
-    furi_timer_start(timer, furi_kernel_get_tick_frequency());
+    // POZNÁMKA: Timer se nespustí hned – měření spustíme až stiskem OK
 
     // Přidáme viewport do GUI
     Gui* gui = furi_record_open(RECORD_GUI);
@@ -123,7 +135,24 @@ int32_t uv_sensor_app(void* p) {
         furi_message_queue_get(event_queue, &event, FuriWaitForever);
         if(event.type == SensorEventTypeInput) {
             // Pokud je stisknuto tlačítko BACK, ukončíme aplikaci
-            if(event.input.key == InputKeyBack) break;
+            if(event.input.key == InputKeyBack) {
+                break;
+            }
+            // Prostřední tlačítko (OK) přepíná stav měření
+            if(event.input.key == InputKeyOk) {
+                if(measurement_running) {
+                    // Zastavíme měření
+                    measurement_running = false;
+                    sensor_status = SensorStatusPaused;
+                    furi_timer_stop(timer);
+                } else {
+                    // Spustíme měření
+                    measurement_running = true;
+                    sensor_status = SensorStatusInitializing;
+                    furi_timer_start(timer, furi_kernel_get_tick_frequency());
+                }
+                view_port_update(view_port);
+            }
         } else if(event.type == SensorEventTypeTick) {
             float uva, uvb, uvc, temp;
             if(as7331_read_measurements(&uva, &uvb, &uvc, &temp)) {
