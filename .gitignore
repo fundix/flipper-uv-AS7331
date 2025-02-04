@@ -57,3 +57,4 @@ dist/*
 .editorconfig
 .env
 .ufbt
+.vscode/compile_commands.json
