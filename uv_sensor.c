@@ -21,10 +21,10 @@
 // --- Aplikační logika a zobrazení ---
 
 // Globální buffery pro textové řetězce s výsledky
-static char uva_str[16] = {0};
-static char uvb_str[16] = {0};
-static char uvc_str[16] = {0};
-static char temp_str[16] = {0};
+static char uva_str[8] = {0};
+static char uvb_str[8] = {0};
+static char uvc_str[8] = {0};
+static char temp_str[8] = {0};
 
 // Stav senzoru (pro zobrazení)
 typedef enum {
@@ -67,7 +67,7 @@ static void sensor_draw_callback(Canvas* canvas, void* ctx) {
     canvas_clear(canvas);
     canvas_draw_rframe(canvas, 0, 0, 128, 64, 3);
     canvas_set_font(canvas, FontPrimary);
-    canvas_draw_str(canvas, 4, 10, "AS7331 UV sensor");
+    canvas_draw_str(canvas, 4, 10, "AS7331 sensor");
 
     canvas_set_font(canvas, FontSecondary);
     switch(sensor_status) {
@@ -85,7 +85,7 @@ static void sensor_draw_callback(Canvas* canvas, void* ctx) {
         canvas_draw_str(canvas, 4, 40, "UVC:");
         canvas_draw_str(canvas, 40, 40, uvc_str);
         canvas_draw_str(canvas, 4, 50, "Temp:");
-        canvas_draw_str(canvas, 60, 50, temp_str);
+        canvas_draw_str(canvas, 40, 50, temp_str);
         break;
     }
     canvas_draw_str(canvas, 4, 60, "Press BACK to exit.");
@@ -128,10 +128,10 @@ int32_t uv_sensor_app(void* p) {
             float uva, uvb, uvc, temp;
             if(as7331_read_measurements(&uva, &uvb, &uvc, &temp)) {
                 sensor_status = SensorStatusDataReady;
-                snprintf(uva_str, sizeof(uva_str), "%.2f", (double)uva);
-                snprintf(uvb_str, sizeof(uvb_str), "%.2f", (double)uvb);
-                snprintf(uvc_str, sizeof(uvc_str), "%.2f", (double)uvc);
-                snprintf(temp_str, sizeof(temp_str), "%.2f", (double)temp);
+                snprintf(uva_str, sizeof(uva_str), "%.3f", (double)uva);
+                snprintf(uvb_str, sizeof(uvb_str), "%.3f", (double)uvb);
+                snprintf(uvc_str, sizeof(uvc_str), "%.3f", (double)uvc);
+                snprintf(temp_str, sizeof(temp_str), "%.1f", (double)temp);
                 // Notifikace – bliknutí modrou při úspěchu
                 notification_message(notifications, &sequence_blink_blue_100);
             } else {

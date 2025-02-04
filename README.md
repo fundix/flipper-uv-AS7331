@@ -1,6 +1,7 @@
 # flipper-uv-AS7331
 
 - gui inspired by https://github.com/xMasterX/all-the-plugins/tree/dev/base_pack/flipper_i2ctools
+- thanks to https://instantiator.dev/post/flipper-zero-app-tutorial-01/
 
 ## Description
 
