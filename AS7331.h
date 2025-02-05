@@ -1,6 +1,10 @@
 #ifndef AS7331_H
 #define AS7331_H
 
+#include <furi.h>
+#include <furi_hal.h>
+#include <furi_hal_i2c.h>
+
 // --- AS7331 Constants Definition ---
 // Sensor address (7-bit) - HAL uses 8-bit address (shift left)
 #define AS7331_ADDRESS (0x74 << 1)

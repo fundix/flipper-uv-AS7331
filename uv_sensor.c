@@ -17,10 +17,11 @@
 #include "views/main_view.h"
 
 // --- Globální buffery pro textové řetězce s výsledky ---
-static char uva_str[8] = {0};
-static char uvb_str[8] = {0};
-static char uvc_str[8] = {0};
-static char temp_str[8] = {0};
+char uva_str[12] = {0};
+char uvb_str[12] = {0};
+char uvc_str[12] = {0};
+char temp_str[12] = {0};
+float uva, uvb, uvc, temp;
 
 // --- Stav senzoru (pro zobrazení) ---
 typedef enum {
@@ -154,7 +155,6 @@ int32_t uv_sensor_app(void* p) {
                 view_port_update(view_port);
             }
         } else if(event.type == SensorEventTypeTick) {
-            float uva, uvb, uvc, temp;
             if(as7331_read_measurements(&uva, &uvb, &uvc, &temp)) {
                 sensor_status = SensorStatusDataReady;
                 snprintf(uva_str, sizeof(uva_str), "%.3f", (double)uva);

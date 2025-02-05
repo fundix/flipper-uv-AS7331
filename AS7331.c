@@ -1,7 +1,3 @@
-
-#include <furi.h>
-#include <furi_hal.h>
-#include <furi_hal_i2c.h>
 #include "AS7331.h"
 
 // --- Implementace nízkoúrovňových funkcí ---
