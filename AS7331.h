@@ -52,7 +52,7 @@
 #define FSRC 169984.0f
 
 // I2C timeout (v ms)
-#define I2C_TIMEOUT_MS 100
+#define I2C_TIMEOUT_MS 10
 
 // Definice externího I2C sběrnice
 #define I2C_BUS &furi_hal_i2c_handle_external
@@ -90,7 +90,8 @@ int8_t as7331_read_measurements(float* uva, float* uvb, float* uvc, float* temp)
 void as7331_dump_registers(void);
 
 void i2c_scan(void);
-void as7331_hard_reset(void);
 
 void as7331_test_device_id(void);
+
+bool as7331_read_reg_sep(uint8_t reg, uint8_t* value);
 #endif /* AS7331_H */

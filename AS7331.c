@@ -7,8 +7,9 @@ bool as7331_write_reg(uint8_t reg, uint8_t value) {
     bool success = false;
     furi_hal_i2c_acquire(I2C_BUS);
 
-    // Use 8-bit addressing
-    success = furi_hal_i2c_tx(I2C_BUS, AS7331_ADDRESS, data, 2, furi_ms_to_ticks(I2C_TIMEOUT_MS));
+    // Pouze TX přenos, rx_data = NULL, rx_size = 0
+    success = furi_hal_i2c_trx(
+        I2C_BUS, AS7331_ADDRESS, data, 2, NULL, 0, furi_ms_to_ticks(I2C_TIMEOUT_MS));
 
     furi_hal_i2c_release(I2C_BUS);
     return success;
@@ -16,18 +17,34 @@ bool as7331_write_reg(uint8_t reg, uint8_t value) {
 
 bool as7331_read_reg(uint8_t reg, uint8_t* value) {
     bool success = false;
+    // Získání přístupu k I2C sběrnici
     furi_hal_i2c_acquire(I2C_BUS);
 
-    // Use the 8-bit address format
-    success = furi_hal_i2c_tx(I2C_BUS, AS7331_ADDRESS, &reg, 1, furi_ms_to_ticks(I2C_TIMEOUT_MS));
-
-    furi_delay_ms(1); // Small delay before reading
+    // Krok 1: Odešleme adresu registru bez generování STOP (tj. bez uvolnění sběrnice)
+    success = furi_hal_i2c_tx_ext(
+        I2C_BUS,
+        AS7331_ADDRESS, // 7-bitová adresa senzoru
+        false, // 10-bit adresa? zde false = 7-bit
+        &reg, // Ukazatel na bajt, který se odesílá (např. adresa registru)
+        1, // Velikost dat
+        FuriHalI2cBeginStart, // Začátek transakce (START)
+        FuriHalI2cEndAwaitRestart, // Konec transakce bez STOP – očekává se restart
+        furi_ms_to_ticks(I2C_TIMEOUT_MS));
 
     if(success) {
-        success =
-            furi_hal_i2c_rx(I2C_BUS, AS7331_ADDRESS, value, 1, furi_ms_to_ticks(I2C_TIMEOUT_MS));
+        // Druhá část: čtení dat s repeated start a zakončení STOP
+        success = furi_hal_i2c_rx_ext(
+            I2C_BUS,
+            AS7331_ADDRESS,
+            false, // 7-bitová adresa
+            value, // Ukazatel na buffer pro přijatá data
+            1, // Počet bajtů k přečtení
+            FuriHalI2cBeginRestart, // Začátek transakce – navazuje na předchozí bez STOP
+            FuriHalI2cEndStop, // Konec transakce – vyslání STOP
+            furi_ms_to_ticks(I2C_TIMEOUT_MS));
     }
 
+    // Uvolnění sběrnice
     furi_hal_i2c_release(I2C_BUS);
     return success;
 }
@@ -75,18 +92,19 @@ void as7331_dump_registers(void) {
     FURI_LOG_I("AS7331", "--- END OF DUMP ---");
 }
 
+// Čtení 16bitové hodnoty z registru
 bool as7331_read_reg16(uint8_t reg, uint16_t* value) {
     uint8_t buf[2];
     bool success = false;
     furi_hal_i2c_acquire(I2C_BUS);
-    success = furi_hal_i2c_tx(I2C_BUS, AS7331_ADDRESS, &reg, 1, furi_ms_to_ticks(I2C_TIMEOUT_MS));
-    if(success) {
-        success =
-            furi_hal_i2c_rx(I2C_BUS, AS7331_ADDRESS, buf, 2, furi_ms_to_ticks(I2C_TIMEOUT_MS));
-    }
+
+    // Odešli se 1 bajt (registr), následně se přečtou 2 bajty
+    success = furi_hal_i2c_trx(
+        I2C_BUS, AS7331_ADDRESS, &reg, 1, buf, 2, furi_ms_to_ticks(I2C_TIMEOUT_MS));
+
     furi_hal_i2c_release(I2C_BUS);
     if(success) {
-        // V datech jsou nejspíš uloženy jako [LSB, MSB]
+        // Data jsou obvykle uložena jako [LSB, MSB]
         *value = ((uint16_t)buf[1] << 8) | buf[0];
     }
     return success;
@@ -122,23 +140,25 @@ void as7331_test_device_id(void) {
 void as7331_init(void) {
     uint8_t osr;
 
-    i2c_scan();
+    // i2c_scan();
 
     FURI_LOG_I("AS7331", "Starting initialization...");
 
     // // 2. Proveď soft reset
-    // if(as7331_read_reg(OSR_REG, &osr)) {
-    //     FURI_LOG_I("AS7331", "OSR_REG before soft reset: 0x%02X", osr);
-    //     osr |= OSR_MASK_SW_RES; // Soft Reset
-    //     if(!as7331_write_reg(OSR_REG, osr)) {
-    //         FURI_LOG_E("AS7331", "Failed to write soft reset to OSR_REG.");
-    //         return;
-    //     }
-    //     furi_delay_ms(100); // Wait for reset to complete
-    // } else {
-    //     FURI_LOG_E("AS7331", "Failed to read OSR_REG before soft reset.");
-    //     return;
-    // }
+    if(as7331_read_reg(OSR_REG, &osr)) {
+        FURI_LOG_I("AS7331", "OSR_REG before soft reset: 0x%02X", osr);
+        osr |= OSR_MASK_SW_RES; // Soft Reset
+        if(!as7331_write_reg(OSR_REG, osr)) {
+            FURI_LOG_E("AS7331", "Failed to write soft reset to OSR_REG.");
+            return;
+        }
+        furi_delay_ms(100); // Wait for reset to complete
+    } else {
+        FURI_LOG_E("AS7331", "Failed to read OSR_REG before soft reset.");
+        return;
+    }
+
+    as7331_dump_registers();
 
     uint8_t device_id = 0;
     if(as7331_read_reg(0x02, &device_id)) {
@@ -229,15 +249,16 @@ bool as7331_wait_for_measurement(uint32_t timeout_ms) {
     return false;
 }
 
+// Čtení všech 8 bajtů surových dat (od registru OUT_REG_TEMP)
 bool as7331_read_all_raw(uint8_t* data) {
-    uint8_t reg = OUT_REG_TEMP; // Uložení registru do proměnné
+    uint8_t reg = OUT_REG_TEMP; // Adresa registru, odkud se začíná číst
+    bool success = false;
     furi_hal_i2c_acquire(I2C_BUS);
-    bool success =
-        furi_hal_i2c_tx(I2C_BUS, AS7331_ADDRESS, &reg, 1, furi_ms_to_ticks(I2C_TIMEOUT_MS));
-    if(success) {
-        success =
-            furi_hal_i2c_rx(I2C_BUS, AS7331_ADDRESS, data, 8, furi_ms_to_ticks(I2C_TIMEOUT_MS));
-    }
+
+    // Kombinovaný TXRX přenos: odešli se 1 bajt (registr) a přečtou se 8 bajtů dat
+    success = furi_hal_i2c_trx(
+        I2C_BUS, AS7331_ADDRESS, &reg, 1, data, 8, furi_ms_to_ticks(I2C_TIMEOUT_MS));
+
     furi_hal_i2c_release(I2C_BUS);
     return success;
 }
