@@ -44,6 +44,7 @@
 #define CREG2_DEFAULT 0x00 // divider disabled, time measurement off
 // In CREG3 we set measurement mode to "command mode" (0x40), standby OFF and cclk = 1024kHz (0)
 #define CREG3_DEFAULT 0x40
+#define CREG3_CONT    0x00
 
 // Conversion constants - fullscale values for individual channels (see Python code)
 #define FSRA 348160.0f
@@ -84,6 +85,12 @@ bool as7331_start_measurement(void);
 bool as7331_wait_for_measurement(uint32_t timeout_ms);
 
 // Read all measured values (UVA, UVB, UVC and temperature)
-bool as7331_read_measurements(float* uva, float* uvb, float* uvc, float* temp);
+int8_t as7331_read_measurements(float* uva, float* uvb, float* uvc, float* temp);
 
+void as7331_dump_registers(void);
+
+void i2c_scan(void);
+void as7331_hard_reset(void);
+
+void as7331_test_device_id(void);
 #endif /* AS7331_H */

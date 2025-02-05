@@ -120,7 +120,8 @@ int32_t uv_sensor_app(void* p) {
     view_port_input_callback_set(view_port, sensor_input_callback, event_queue);
 
     // Vytvoříme periodický timer (např. 1 Hz) pro čtení dat ze senzoru
-    FuriTimer* timer = furi_timer_alloc(sensor_timer_callback, FuriTimerTypePeriodic, event_queue);
+    FuriTimer* timer =
+        furi_timer_alloc(sensor_timer_callback, FuriTimerTypePeriodic * 2, event_queue);
     // POZNÁMKA: Timer se nespustí hned – měření spustíme až stiskem OK
 
     // Přidáme viewport do GUI
@@ -150,21 +151,25 @@ int32_t uv_sensor_app(void* p) {
                     // Spustíme měření
                     measurement_running = true;
                     sensor_status = SensorStatusInitializing;
-                    furi_timer_start(timer, furi_kernel_get_tick_frequency());
+                    furi_timer_start(timer, furi_kernel_get_tick_frequency() * 2);
                 }
                 view_port_update(view_port);
             }
         } else if(event.type == SensorEventTypeTick) {
-            if(as7331_read_measurements(&uva, &uvb, &uvc, &temp)) {
+            int8_t result = as7331_read_measurements(&uva, &uvb, &uvc, &temp);
+
+            if(result > 0) {
                 sensor_status = SensorStatusDataReady;
                 snprintf(uva_str, sizeof(uva_str), "%.3f", (double)uva);
                 snprintf(uvb_str, sizeof(uvb_str), "%.3f", (double)uvb);
                 snprintf(uvc_str, sizeof(uvc_str), "%.3f", (double)uvc);
                 snprintf(temp_str, sizeof(temp_str), "%.1f", (double)temp);
+
                 // Notifikace – bliknutí modrou při úspěchu
                 notification_message(notifications, &sequence_blink_blue_100);
             } else {
                 sensor_status = SensorStatusNoSensor;
+                snprintf(temp_str, sizeof(temp_str), "Err: %d", result);
                 // Notifikace – bliknutí červenou při chybě
                 notification_message(notifications, &sequence_blink_red_100);
             }
